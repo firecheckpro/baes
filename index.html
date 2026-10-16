@@ -1,0 +1,2543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1A2B4C">
+<link rel="manifest" href="manifest.json">
+<!-- Icône iOS (écran d'accueil) -->
+<link rel="apple-touch-icon" sizes="180x180" href="logo-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="logo-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="logo-167.png">
+<link rel="apple-touch-icon" sizes="1024x1024" href="logo.png">
+
+<!-- Favicon navigateur -->
+<link rel="icon" type="image/png" sizes="32x32" href="logo.png">
+<title>BAES Manager</title>
+
+<script src="jspdf.umd.min.js" onerror="window.__noJsPDF=true"></script>
+<script src="jspdf.plugin.autotable.min.js" onerror="window.__noAutoTable=true"></script>
+
+<style>
+/* ============================================================
+   PALETTE 3 COULEURS + MODE SOMBRE
+   ============================================================ */
+:root {
+  --c-primary: #1A2B4C;
+  --c-bg:      #F5F7FA;
+  --c-accent:  #E6B12E;
+  --c-card:    #FFFFFF;
+  --c-text:    #1A2B4C;
+  --c-text-2:  #4B5C7A;
+  --c-border:  rgba(26, 43, 76, 0.08);
+  --c-input-bg:#F5F7FA;
+}
+
+html.dark {
+  --c-primary: #E6B12E;
+  --c-bg:      #0F1A2E;
+  --c-accent:  #E6B12E;
+  --c-card:    #1E2A44;
+  --c-text:    #F5F7FA;
+  --c-text-2:  #A0AEC0;
+  --c-border:  rgba(255, 255, 255, 0.08);
+  --c-input-bg:#16213A;
+}
+
+* {
+  margin: 0; padding: 0; box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* ============ PAGES ============ */
+.page {
+  position: fixed; inset: 0;
+  background: var(--c-bg);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+  overflow: hidden;
+}
+.page.active { transform: translateX(0); }
+#pageClients { transform: translateX(0); z-index: 1; }
+#pageClients.hidden { transform: translateX(-30%); }
+#pageDetail { z-index: 2; }
+#pageParc   { z-index: 3; }
+#pageGlobal { z-index: 4; }
+
+/* ============ HEADER ============ */
+.app-header {
+  background: var(--c-primary);
+  color: var(--c-bg);
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 14px;
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  position: relative; z-index: 10;
+}
+
+html.dark .app-header { background: #16213A; }
+html.dark .app-header h1 .title-text { color: #F5F7FA; }
+
+.app-header h1 {
+  font-size: 1.05rem; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+}
+
+.app-header h1 .title-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.app-header .logo-icon { width: 24px; height: 24px; flex-shrink: 0; color: var(--c-accent); }
+
+.badge-norme {
+  background: var(--c-accent); color: #1A2B4C;
+  padding: 4px 9px; border-radius: 40px;
+  font-size: 0.6rem; font-weight: 700;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+.back-btn, .icon-header-btn {
+  background: rgba(255,255,255,0.12);
+  border: none; color: var(--c-bg);
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.back-btn:active, .icon-header-btn:active { background: rgba(255,255,255,0.28); }
+.back-btn svg, .icon-header-btn svg { width: 19px; height: 19px; }
+
+/* ============ CONTENU ============ */
+.page-content {
+  flex: 1; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 90px);
+  contain: layout style paint;
+}
+
+/* ============ RECHERCHE ============ */
+.search-box { position: relative; margin-bottom: 12px; }
+.search-box svg {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  width: 17px; height: 17px; color: var(--c-text); opacity: 0.5; pointer-events: none;
+}
+.search-box input {
+  width: 100%; padding: 13px 16px 13px 42px;
+  border: 1px solid var(--c-border);
+  border-radius: 13px;
+  background: var(--c-card);
+  font-family: inherit; font-size: 1rem; font-weight: 500;
+  color: var(--c-text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+}
+.search-box input:focus {
+  outline: none; border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px rgba(230, 177, 46, 0.15);
+}
+
+/* ============ FILTRES ============ */
+.filter-bar {
+  display: flex; gap: 8px; margin-bottom: 12px;
+  overflow-x: auto; padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  background: var(--c-card);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-2);
+  padding: 8px 14px; border-radius: 40px;
+  font-size: 0.78rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.filter-chip:active { transform: scale(0.96); }
+.filter-chip.active {
+  background: var(--c-primary); color: var(--c-bg);
+  border-color: var(--c-primary);
+}
+html.dark .filter-chip.active {
+  background: var(--c-accent); color: #1A2B4C;
+  border-color: var(--c-accent);
+}
+
+/* ============ LISTE CLIENTS ============ */
+.client-list { display: flex; flex-direction: column; gap: 10px; }
+
+.client-item {
+  background: var(--c-card);
+  border-radius: 15px; padding: 15px 16px;
+  cursor: pointer;
+  border: 1px solid var(--c-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: flex; flex-direction: column; gap: 5px;
+  transition: transform 0.1s, border-color 0.15s;
+  position: relative;
+}
+.client-item::after {
+  content: ''; position: absolute; right: 16px; top: 50%;
+  width: 7px; height: 7px;
+  border-right: 2px solid var(--c-text);
+  border-bottom: 2px solid var(--c-text);
+  transform: translateY(-50%) rotate(-45deg);
+  opacity: 0.35;
+}
+.client-item:active { transform: scale(0.98); border-color: var(--c-accent); }
+
+.client-name {
+  font-weight: 700; font-size: 1rem;
+  padding-right: 20px; word-break: break-word;
+  color: var(--c-text);
+}
+.client-detail {
+  font-size: 0.8rem; color: var(--c-text-2);
+  display: flex; align-items: center; gap: 7px;
+}
+.client-detail svg { width: 12px; height: 12px; color: var(--c-accent); flex-shrink: 0; }
+
+.client-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+.client-meta span {
+  font-size: 0.7rem; background: var(--c-input-bg); color: var(--c-text-2);
+  padding: 3px 9px; border-radius: 20px; font-weight: 600;
+}
+
+/* ============ FICHE CLIENT ============ */
+.client-card {
+  background: var(--c-card);
+  border-radius: 16px; padding: 18px;
+  margin-bottom: 14px;
+  border-left: 5px solid var(--c-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+.client-card h2 {
+  font-size: 1.25rem; font-weight: 700;
+  margin-bottom: 10px; word-break: break-word;
+  padding-right: 80px;
+}
+.client-card-actions {
+  position: absolute;
+  top: 14px; right: 14px;
+  display: flex; gap: 6px;
+}
+.client-action-btn {
+  background: var(--c-input-bg);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-2);
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.client-action-btn:active { transform: scale(0.94); background: var(--c-card); }
+.client-action-btn svg { width: 16px; height: 16px; }
+.client-action-btn.danger { color: #B33A2C; }
+.client-action-btn.danger:active { background: #FCE8E6; }
+
+.client-info-grid { display: flex; flex-direction: column; gap: 8px; }
+.info-item {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: 0.86rem; word-break: break-word;
+}
+.info-item svg {
+  width: 15px; height: 15px; color: var(--c-accent);
+  flex-shrink: 0; margin-top: 3px;
+}
+
+/* ============ SECTION HEADER ============ */
+.section-header {
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 10px;
+  margin-bottom: 12px; flex-wrap: wrap;
+}
+.section-header h3 {
+  font-size: 1rem; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-header h3 svg { width: 18px; height: 18px; color: var(--c-accent); }
+.section-header h3 .count {
+  background: var(--c-primary); color: var(--c-bg);
+  font-size: 0.7rem; padding: 2px 9px;
+  border-radius: 20px; margin-left: 4px;
+}
+html.dark .section-header h3 .count { background: var(--c-accent); color: #1A2B4C; }
+
+/* ============ BOUTONS ============ */
+.btn {
+  border: none; font-family: inherit;
+  font-weight: 600; font-size: 0.85rem;
+  padding: 11px 15px; border-radius: 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; cursor: pointer; transition: transform 0.1s;
+  -webkit-appearance: none; min-height: 42px; white-space: nowrap;
+}
+.btn:active { transform: scale(0.96); }
+.btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.btn-primary { background: #1A2B4C; color: #FFFFFF; }
+html.dark .btn-primary { background: var(--c-accent); color: #1A2B4C; }
+.btn-accent { background: var(--c-accent); color: #1A2B4C; }
+.btn-ghost {
+  background: var(--c-card); color: var(--c-text);
+  border: 1px solid var(--c-border);
+}
+.btn-danger { background: #B33A2C; color: #FFFFFF; }
+
+/* ============ LISTE PARCS ============ */
+.parc-list { display: flex; flex-direction: column; gap: 10px; }
+
+.parc-item {
+  background: var(--c-card);
+  border-radius: 15px; padding: 15px 16px;
+  cursor: pointer;
+  border: 1px solid var(--c-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: flex; flex-direction: column; gap: 6px;
+  transition: transform 0.1s, border-color 0.15s;
+  position: relative;
+}
+.parc-item:active { transform: scale(0.98); border-color: var(--c-accent); }
+
+.parc-header-row {
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 10px;
+}
+
+.parc-name {
+  font-weight: 700; font-size: 0.98rem;
+  display: flex; align-items: center; gap: 8px;
+  word-break: break-word; flex: 1; min-width: 0;
+}
+.parc-name svg { width: 16px; height: 16px; color: var(--c-accent); flex-shrink: 0; }
+
+.parc-actions {
+  display: flex; gap: 4px;
+  flex-shrink: 0;
+}
+
+.parc-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--c-text-2);
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.parc-action-btn:active { background: var(--c-input-bg); }
+.parc-action-btn svg { width: 15px; height: 15px; }
+.parc-action-btn.danger { color: #B33A2C; }
+.parc-action-btn.danger:active { background: #FCE8E6; }
+
+.parc-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+
+.parc-stat {
+  font-size: 0.7rem; padding: 3px 9px; border-radius: 20px;
+  font-weight: 700;
+  background: var(--c-input-bg); color: var(--c-text-2);
+}
+.parc-stat.ok { background: #E6F4EA; color: #1E7B4A; }
+.parc-stat.nonok { background: #FCE8E6; color: #B33A2C; }
+.parc-stat.remplacer { background: #FFF3E0; color: #B36B00; }
+
+/* ============ CARTES BAES ============ */
+.baes-container { display: flex; flex-direction: column; gap: 10px; }
+
+.baes-card {
+  background: var(--c-card);
+  border-radius: 15px; padding: 14px;
+  border: 1px solid var(--c-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: flex; flex-direction: column; gap: 10px;
+  position: relative;
+}
+
+.baes-card.retard {
+  border-left: 4px solid #B33A2C;
+}
+
+.baes-card-header {
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--c-border);
+  flex-wrap: wrap;
+}
+
+.baes-card-numero {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+}
+.baes-card-numero .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--c-accent); flex-shrink: 0;
+}
+.baes-card-numero input {
+  border: none; background: transparent;
+  font-family: inherit; font-weight: 700;
+  font-size: 0.95rem; color: var(--c-text);
+  width: 100%; padding: 4px 6px; border-radius: 6px;
+}
+.baes-card-numero input:focus { outline: none; background: var(--c-input-bg); }
+
+.baes-actions {
+  display: flex; gap: 4px; align-items: center;
+}
+
+.icon-btn-sm {
+  background: transparent; border: none;
+  color: var(--c-text-2); cursor: pointer;
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: relative;
+}
+.icon-btn-sm:active { background: var(--c-input-bg); }
+.icon-btn-sm svg { width: 16px; height: 16px; }
+.icon-btn-sm.danger { color: #B33A2C; }
+.icon-btn-sm.danger:active { background: #FCE8E6; }
+.icon-btn-sm.has-photo::after {
+  content: ''; position: absolute; top: 6px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c-accent);
+}
+
+.retard-badge {
+  background: #FCE8E6; color: #B33A2C;
+  font-size: 0.65rem; font-weight: 700;
+  padding: 3px 8px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 4px;
+  white-space: nowrap;
+}
+.retard-badge svg { width: 11px; height: 11px; }
+
+/* ============ CHAMPS ============ */
+.field-row { display: flex; flex-direction: column; gap: 4px; }
+.field-row label {
+  font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--c-text-2); padding-left: 2px;
+}
+.field-row input, .field-row select, .field-row textarea {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  font-family: inherit; font-size: 0.92rem;
+  background: var(--c-input-bg); color: var(--c-text);
+  transition: border-color 0.15s, background 0.15s;
+  -webkit-appearance: none;
+}
+.field-row select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231A2B4C' stroke-width='3'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 34px;
+}
+html.dark .field-row select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23F5F7FA' stroke-width='3'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+.field-row input:focus, .field-row select:focus, .field-row textarea:focus {
+  outline: none; border-color: var(--c-accent);
+  background: var(--c-card);
+  box-shadow: 0 0 0 3px rgba(230, 177, 46, 0.15);
+}
+.field-row textarea {
+  resize: vertical; min-height: 56px; font-family: inherit;
+}
+
+.field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+.etat-ok { background: #E6F4EA !important; color: #1E7B4A !important; border-color: #B7DEC5 !important; font-weight: 700; }
+.etat-nonok { background: #FCE8E6 !important; color: #B33A2C !important; border-color: #F2C0B9 !important; font-weight: 700; }
+.etat-remplacer { background: #FFF3E0 !important; color: #B36B00 !important; border-color: #F0D9A8 !important; font-weight: 700; }
+
+/* ============ PHOTOS BAES ============ */
+.baes-photos {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding-top: 8px; border-top: 1px solid var(--c-border);
+  margin-top: 4px;
+}
+.photo-thumb {
+  position: relative;
+  width: 64px; height: 64px;
+  border-radius: 10px; overflow: hidden;
+  background: var(--c-input-bg);
+  flex-shrink: 0;
+  border: 1px solid var(--c-border);
+}
+.photo-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.photo-thumb .remove-photo {
+  position: absolute; top: 2px; right: 2px;
+  background: rgba(179, 58, 44, 0.9); color: white;
+  border: none; width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 12px; line-height: 1;
+}
+.photo-add-btn {
+  width: 64px; height: 64px; border-radius: 10px;
+  border: 2px dashed var(--c-border);
+  background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 2px;
+  color: var(--c-text-2); cursor: pointer;
+  font-size: 0.6rem; font-weight: 600;
+  flex-shrink: 0;
+}
+.photo-add-btn svg { width: 20px; height: 20px; color: var(--c-accent); }
+.photo-add-btn:active { background: var(--c-input-bg); }
+
+/* ============ ÉTAT VIDE ============ */
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 50px 20px; text-align: center;
+  color: var(--c-text-2);
+}
+.empty-state svg {
+  width: 52px; height: 52px; color: var(--c-accent);
+  margin-bottom: 14px; opacity: 0.85;
+}
+.empty-state h3 {
+  font-size: 1.05rem; font-weight: 700;
+  color: var(--c-text); margin-bottom: 5px;
+}
+.empty-state p { font-size: 0.88rem; }
+
+/* ============ MODALE ============ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 26, 46, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center;
+  z-index: 100; padding: 20px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.modal-overlay.show { display: flex; opacity: 1; }
+
+.modal {
+  background: var(--c-card);
+  border-radius: 20px; padding: 22px;
+  width: 100%; max-width: 440px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  transform: scale(0.95);
+  transition: transform 0.2s;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-overlay.show .modal { transform: scale(1); }
+
+.modal h3 {
+  font-size: 1.1rem; font-weight: 700;
+  margin-bottom: 16px; color: var(--c-text);
+}
+.modal-actions {
+  display: flex; gap: 10px; margin-top: 18px;
+}
+.modal-actions .btn { flex: 1; }
+
+/* ============ SIGNATURE CANVAS ============ */
+.signature-wrapper {
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 2px dashed var(--c-accent);
+  padding: 8px;
+  position: relative;
+  margin-top: 12px;
+}
+.signature-wrapper canvas {
+  width: 100%; height: 180px;
+  display: block;
+  background: #FFFFFF;
+  border-radius: 8px;
+  touch-action: none;
+  cursor: crosshair;
+}
+.signature-hint {
+  text-align: center; font-size: 0.75rem;
+  color: var(--c-text-2); margin-top: 6px;
+}
+.clear-signature {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(179, 58, 44, 0.9); color: white;
+  border: none; padding: 6px 12px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 700; cursor: pointer;
+  z-index: 2;
+}
+
+/* ============ FAB ============ */
+.fab-add {
+  position: fixed;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  width: 54px; height: 54px; border-radius: 50%;
+  background: var(--c-primary); color: var(--c-bg);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(26, 43, 76, 0.35);
+  cursor: pointer; z-index: 50;
+  transition: transform 0.15s;
+}
+html.dark .fab-add { background: var(--c-accent); color: #1A2B4C; }
+.fab-add:active { transform: scale(0.92); }
+.fab-add svg { width: 22px; height: 22px; }
+
+/* ============ TOAST ============ */
+.toast {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  background: var(--c-primary); color: var(--c-bg);
+  padding: 11px 20px; border-radius: 40px;
+  font-size: 0.85rem; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(26, 43, 76, 0.3);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 999; max-width: 90vw; text-align: center;
+}
+html.dark .toast { background: var(--c-accent); color: #1A2B4C; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ============ VUE GLOBALE ============ */
+.global-stat {
+  background: var(--c-card);
+  border-radius: 16px; padding: 18px;
+  margin-bottom: 12px;
+  border: 1px solid var(--c-border);
+  text-align: center;
+}
+.global-stat .num {
+  font-size: 2rem; font-weight: 800;
+  color: var(--c-text); line-height: 1;
+}
+.global-stat .lbl {
+  font-size: 0.78rem; color: var(--c-text-2);
+  margin-top: 6px; font-weight: 600;
+}
+.global-stat.ok .num { color: #1E7B4A; }
+.global-stat.nonok .num { color: #B33A2C; }
+.global-stat.remplacer .num { color: #B36B00; }
+
+.global-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.global-baes-item {
+  background: var(--c-card);
+  border-radius: 14px; padding: 14px;
+  border: 1px solid var(--c-border);
+  display: flex; flex-direction: column; gap: 6px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.global-baes-item:active { transform: scale(0.98); }
+.global-baes-item .g-header {
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 8px;
+}
+.global-baes-item .g-title {
+  font-weight: 700; font-size: 0.95rem;
+}
+.global-baes-item .g-path {
+  font-size: 0.75rem; color: var(--c-text-2);
+  display: flex; align-items: center; gap: 5px;
+}
+.global-baes-item .g-path svg {
+  width: 11px; height: 11px; color: var(--c-accent);
+}
+
+/* ============ RESPONSIVE ============ */
+@media (min-width: 768px) {
+  .page-content { padding: 22px 26px calc(env(safe-area-inset-bottom, 0px) + 26px); }
+  .app-header { padding: calc(env(safe-area-inset-top, 0px) + 18px) 26px 18px; }
+  .app-header h1 { font-size: 1.25rem; }
+
+  .client-list, .parc-list, .baes-container {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px;
+  }
+  .global-grid { grid-template-columns: repeat(4, 1fr); }
+  .fab-add { display: none; }
+  .client-info-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 22px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .client-list { grid-template-columns: repeat(3, 1fr); }
+  .baes-container { grid-template-columns: repeat(2, 1fr); }
+}
+
+.page-content::-webkit-scrollbar { width: 6px; }
+.page-content::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.3);
+  border-radius: 10px;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     PAGE 1 : CLIENTS
+     ============================================================ -->
+<div class="page" id="pageClients">
+  <header class="app-header">
+    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/>
+      <path d="M9 12l2 2 4-4" stroke="#E6B12E"/>
+    </svg>
+    <h1><span class="title-text">BAES Manager</span></h1>
+    <button class="icon-header-btn" id="themeToggle" aria-label="Thème">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    <button class="icon-header-btn" id="globalViewBtn" aria-label="Vue globale">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="page-content">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input type="text" id="searchInput" placeholder="Rechercher un client..." autocomplete="off" autocorrect="off">
+    </div>
+
+    <div class="client-list" id="clientList"></div>
+
+    <div style="margin-top: 22px; text-align: center;">
+      <button class="btn btn-ghost" id="addClientBtn" style="width: 100%;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Nouveau client
+      </button>
+      <button class="btn btn-ghost" id="exportBtn" style="width: 100%; margin-top: 8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Sauvegarder les données
+      </button>
+      <button class="btn btn-ghost" id="importBtn" style="width: 100%; margin-top: 8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+        </svg>
+        Importer des données
+      </button>
+      <input type="file" id="importFile" accept=".json" style="display: none;">
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE 2 : DÉTAIL CLIENT (parcs)
+     ============================================================ -->
+<div class="page" id="pageDetail">
+  <header class="app-header">
+    <button class="back-btn" id="backToClients" aria-label="Retour">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </button>
+    <h1><span class="title-text" id="detailTitle">Fiche client</span></h1>
+    <span class="badge-norme">Parcs</span>
+  </header>
+
+  <div class="page-content">
+    <div class="client-card">
+      <div class="client-card-actions">
+        <button class="client-action-btn" id="editClientBtn" title="Modifier">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="client-action-btn danger" id="deleteClientBtn" title="Supprimer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+      <h2 id="clientNameDisplay">—</h2>
+      <div class="client-info-grid" id="clientInfoGrid"></div>
+    </div>
+
+    <div class="section-header">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/>
+        </svg>
+        Parcs / Bâtiments
+        <span class="count" id="parcCount">0</span>
+      </h3>
+      <button class="btn btn-primary" id="addParcBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Nouveau parc
+      </button>
+    </div>
+
+    <div class="parc-list" id="parcList"></div>
+
+    <div style="margin-top: 18px;">
+      <button class="btn btn-ghost" id="generateClientPdfBtn" style="width: 100%;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="15" x2="15" y2="15"/>
+        </svg>
+        Rapport PDF de tous les parcs
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE 3 : DÉTAIL PARC (BAES)
+     ============================================================ -->
+<div class="page" id="pageParc">
+  <header class="app-header">
+    <button class="back-btn" id="backToDetail" aria-label="Retour">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </button>
+    <h1><span class="title-text" id="parcTitle">Parc</span></h1>
+    <button class="icon-header-btn" id="renameParcBtn" title="Renommer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </button>
+    <span class="badge-norme" id="parcCountBadge">0 BAES</span>
+  </header>
+
+  <div class="page-content">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input type="text" id="searchBaesInput" placeholder="Rechercher un BAES..." autocomplete="off">
+    </div>
+
+    <div class="filter-bar" id="etatFilterBar">
+      <button class="filter-chip active" data-filter="all">Tous</button>
+      <button class="filter-chip" data-filter="ok">OK</button>
+      <button class="filter-chip" data-filter="non ok">NON OK</button>
+      <button class="filter-chip" data-filter="remplacer">À REMPLACER</button>
+      <button class="filter-chip" data-filter="retard">⚠ En retard</button>
+    </div>
+
+    <div class="section-header">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1v.2h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+        </svg>
+        Blocs de secours
+        <span class="count" id="baesCount">0</span>
+      </h3>
+      <button class="btn btn-accent" id="generateParcPdfBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        PDF
+      </button>
+    </div>
+
+    <div class="baes-container" id="baesContainer"></div>
+  </div>
+
+  <button class="fab-add" id="fabAddBaes" aria-label="Ajouter un BAES">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+  </button>
+</div>
+
+<!-- ============================================================
+     PAGE 4 : VUE GLOBALE
+     ============================================================ -->
+<div class="page" id="pageGlobal">
+  <header class="app-header">
+    <button class="back-btn" id="backFromGlobal" aria-label="Retour">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </button>
+    <h1><span class="title-text">Vue globale</span></h1>
+    <span class="badge-norme">Tous clients</span>
+  </header>
+
+  <div class="page-content">
+    <div class="global-grid" id="globalStats"></div>
+
+    <div class="filter-bar" id="globalFilterBar">
+      <button class="filter-chip" data-filter="all">Tous</button>
+      <button class="filter-chip active" data-filter="non ok">NON OK</button>
+      <button class="filter-chip" data-filter="remplacer">À REMPLACER</button>
+      <button class="filter-chip" data-filter="ok">OK</button>
+      <button class="filter-chip" data-filter="retard">⚠ En retard</button>
+    </div>
+
+    <div class="baes-container" id="globalBaesList"></div>
+  </div>
+</div>
+
+<!-- ============ MODALE ============ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONSTANTES
+   ============================================================ */
+const ETATS = [
+  { value: "ok", label: "OK" },
+  { value: "non ok", label: "NON OK" },
+  { value: "remplacer", label: "À REMPLACER" }
+];
+
+// Templates = uniquement les marques constructeurs connues
+const BAES_TEMPLATES = [
+  { label: "Legrand", marque: "Legrand" },
+  { label: "Schneider Electric", marque: "Schneider Electric" },
+  { label: "Eaton", marque: "Eaton" },
+  { label: "Philips", marque: "Philips" },
+  { label: "Hager", marque: "Hager" },
+  { label: "ABB", marque: "ABB" },
+  { label: "Zumtobel", marque: "Zumtobel" },
+  { label: "Cooper", marque: "Cooper" },
+  { label: "Sylvania", marque: "Sylvania" },
+  { label: "Norms", marque: "Norms" }
+];
+
+const RETARD_JOURS = 30;
+const STORAGE_KEY = 'baes_manager_v2';
+const STORAGE_KEY_THEME = 'baes_theme';
+const XOR_KEY = 'b@es-v2-secret';
+const MAX_PHOTO_WIDTH = 800;
+
+/* ============================================================
+   DONNÉES PAR DÉFAUT
+   ============================================================ */
+const DEFAULT_DATA = [
+  {
+    id: 1, nom: "SCI Les Tilleuls",
+    adresse: "12 rue des Acacias, 75011 Paris",
+    tel: "01 43 55 67 89", email: "contact@sci-tilleuls.fr",
+    parcs: [
+      { id: 1001, nom: "Bâtiment A - Siège", baes: [
+        { id: 101, numero: "B-01", emplacement: "Hall d'entrée", marque: "Legrand", etat: "ok", commentaire: "RAS", photos: [], derniereVerif: Date.now() - 5 * 86400000 },
+        { id: 102, numero: "B-02", emplacement: "Couloir RDC", marque: "Schneider Electric", etat: "remplacer", commentaire: "Batterie faible", photos: [], derniereVerif: Date.now() - 45 * 86400000 }
+      ]},
+      { id: 1002, nom: "Bâtiment B - Annexe", baes: [
+        { id: 103, numero: "B-01", emplacement: "Entrée", marque: "Eaton", etat: "ok", commentaire: "", photos: [], derniereVerif: Date.now() - 12 * 86400000 }
+      ]}
+    ]
+  },
+  {
+    id: 2, nom: "Boulangerie Dupain",
+    adresse: "8 place du Marché, 69002 Lyon",
+    tel: "04 78 92 11 22", email: "dupain@boulangerie.fr",
+    parcs: [
+      { id: 2001, nom: "Boutique principale", baes: [
+        { id: 201, numero: "B-01", emplacement: "Caisse", marque: "Eaton", etat: "ok", commentaire: "Test mensuel OK", photos: [], derniereVerif: Date.now() - 3 * 86400000 },
+        { id: 202, numero: "B-02", emplacement: "Réserve", marque: "Legrand", etat: "non ok", commentaire: "Voyant HS", photos: [], derniereVerif: Date.now() - 60 * 86400000 },
+        { id: 203, numero: "B-03", emplacement: "Sortie secours", marque: "Schneider Electric", etat: "ok", commentaire: "", photos: [], derniereVerif: Date.now() - 8 * 86400000 }
+      ]}
+    ]
+  },
+  {
+    id: 3, nom: "Garage AutoPro",
+    adresse: "45 avenue de la République, 33000 Bordeaux",
+    tel: "05 56 78 90 12", email: "contact@autopro.fr",
+    parcs: [
+      { id: 3001, nom: "Atelier principal", baes: [
+        { id: 301, numero: "B-01", emplacement: "Atelier", marque: "Philips", etat: "ok", commentaire: "Bon état", photos: [], derniereVerif: Date.now() - 1 * 86400000 }
+      ]}
+    ]
+  }
+];
+
+/* ============================================================
+   ÉTAT GLOBAL
+   ============================================================ */
+let clientsData = [];
+let currentClientId = null;
+let currentParcId = null;
+let baesFilterTerm = '';
+let baesEtatFilter = 'all';
+let globalEtatFilter = 'non ok';
+let renderBatchSize = 40;
+let baesRenderToken = 0;
+let signatureDataUrl = null;
+
+/* ============================================================
+   CHIFFREMENT LOCAL
+   ============================================================ */
+function xorCrypt(str, key) {
+  let out = '';
+  for (let i = 0; i < str.length; i++) {
+    out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return out;
+}
+
+function encryptData(data) {
+  try {
+    const json = JSON.stringify(data);
+    const xored = xorCrypt(json, XOR_KEY);
+    return btoa(unescape(encodeURIComponent(xored)));
+  } catch(e) { return null; }
+}
+
+function decryptData(b64) {
+  try {
+    const xored = decodeURIComponent(escape(atob(b64)));
+    const json = xorCrypt(xored, XOR_KEY);
+    return JSON.parse(json);
+  } catch(e) { return null; }
+}
+
+/* ============================================================
+   PERSISTANCE
+   ============================================================ */
+function saveData() {
+  try {
+    const payload = { version: 2, savedAt: Date.now(), clients: clientsData };
+    const encrypted = encryptData(payload);
+    if (encrypted) localStorage.setItem(STORAGE_KEY, encrypted);
+    else localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch(e) { console.warn('Sauvegarde impossible', e); }
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { clientsData = deepClone(DEFAULT_DATA); return; }
+    let parsed = decryptData(raw);
+    if (!parsed) {
+      try { parsed = JSON.parse(raw); } catch(e) { parsed = null; }
+    }
+    if (parsed && Array.isArray(parsed.clients)) clientsData = parsed.clients;
+    else clientsData = deepClone(DEFAULT_DATA);
+  } catch(e) {
+    clientsData = deepClone(DEFAULT_DATA);
+  }
+}
+
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+/* ============================================================
+   THÈME
+   ============================================================ */
+function initTheme() {
+  const saved = localStorage.getItem(STORAGE_KEY_THEME);
+  if (saved === 'dark') document.documentElement.classList.add('dark');
+  else if (saved === 'light') document.documentElement.classList.remove('dark');
+  else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.classList.add('dark');
+  }
+}
+
+function toggleTheme() {
+  document.documentElement.classList.toggle('dark');
+  const isDark = document.documentElement.classList.contains('dark');
+  localStorage.setItem(STORAGE_KEY_THEME, isDark ? 'dark' : 'light');
+}
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const pageClients = document.getElementById('pageClients');
+const pageDetail  = document.getElementById('pageDetail');
+const pageParc    = document.getElementById('pageParc');
+const pageGlobal  = document.getElementById('pageGlobal');
+
+const searchInput     = document.getElementById('searchInput');
+const clientListEl    = document.getElementById('clientList');
+
+const backToClients   = document.getElementById('backToClients');
+const detailTitle     = document.getElementById('detailTitle');
+const clientNameDisplay = document.getElementById('clientNameDisplay');
+const clientInfoGrid  = document.getElementById('clientInfoGrid');
+const parcListEl      = document.getElementById('parcList');
+const parcCount       = document.getElementById('parcCount');
+const addParcBtn      = document.getElementById('addParcBtn');
+const generateClientPdfBtn = document.getElementById('generateClientPdfBtn');
+const editClientBtn   = document.getElementById('editClientBtn');
+const deleteClientBtn = document.getElementById('deleteClientBtn');
+
+const backToDetail    = document.getElementById('backToDetail');
+const parcTitle       = document.getElementById('parcTitle');
+const parcCountBadge  = document.getElementById('parcCountBadge');
+const searchBaesInput = document.getElementById('searchBaesInput');
+const baesContainer   = document.getElementById('baesContainer');
+const baesCount       = document.getElementById('baesCount');
+const generateParcPdfBtn = document.getElementById('generateParcPdfBtn');
+const fabAddBaes      = document.getElementById('fabAddBaes');
+const etatFilterBar   = document.getElementById('etatFilterBar');
+const renameParcBtn   = document.getElementById('renameParcBtn');
+
+const backFromGlobal  = document.getElementById('backFromGlobal');
+const globalStats     = document.getElementById('globalStats');
+const globalFilterBar = document.getElementById('globalFilterBar');
+const globalBaesList  = document.getElementById('globalBaesList');
+
+const modalOverlay    = document.getElementById('modalOverlay');
+const modalContent    = document.getElementById('modalContent');
+const toastEl         = document.getElementById('toast');
+
+const themeToggle     = document.getElementById('themeToggle');
+const globalViewBtn   = document.getElementById('globalViewBtn');
+const exportBtn       = document.getElementById('exportBtn');
+const importBtn       = document.getElementById('importBtn');
+const importFile      = document.getElementById('importFile');
+const addClientBtn    = document.getElementById('addClientBtn');
+
+/* ============================================================
+   ICÔNES SVG
+   ============================================================ */
+const ICONS = {
+  pin:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  phone:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  mail:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+  trash:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>',
+  camera:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  warn:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  sign:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c2-1 3-3 5-3s3 2 5 2 3-2 5-2 3 1 3 1"/><path d="M3 21h18"/></svg>',
+  edit:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  check:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+};
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+function goToClients() {
+  pageGlobal.classList.remove('active');
+  pageParc.classList.remove('active');
+  pageDetail.classList.remove('active');
+  pageClients.classList.remove('hidden');
+  currentClientId = null; currentParcId = null;
+  baesFilterTerm = ''; baesEtatFilter = 'all';
+  searchBaesInput.value = '';
+  resetEtatFilterBar();
+  renderClientList();
+}
+
+function goToDetail() {
+  pageGlobal.classList.remove('active');
+  pageParc.classList.remove('active');
+  pageDetail.classList.add('active');
+  pageClients.classList.add('hidden');
+  document.querySelector('#pageDetail .page-content').scrollTop = 0;
+}
+
+function goToParc() {
+  pageParc.classList.add('active');
+  document.querySelector('#pageParc .page-content').scrollTop = 0;
+}
+
+function goToGlobal() {
+  pageParc.classList.remove('active');
+  pageDetail.classList.remove('active');
+  pageClients.classList.add('hidden');
+  pageGlobal.classList.add('active');
+  renderGlobalView();
+}
+
+function resetEtatFilterBar() {
+  etatFilterBar.querySelectorAll('.filter-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === 'all');
+  });
+}
+
+backToClients.addEventListener('click', goToClients);
+backToDetail.addEventListener('click', () => { goToDetail(); renderParcList(getCurrentClient()); });
+backFromGlobal.addEventListener('click', () => { pageGlobal.classList.remove('active'); pageClients.classList.remove('hidden'); renderClientList(); });
+
+/* ============================================================
+   LISTE CLIENTS
+   ============================================================ */
+function renderClientList() {
+  const term = searchInput.value.toLowerCase().trim();
+  const filtered = clientsData.filter(c =>
+    c.nom.toLowerCase().includes(term) ||
+    c.adresse.toLowerCase().includes(term) ||
+    c.email.toLowerCase().includes(term) ||
+    c.tel.toLowerCase().includes(term)
+  );
+
+  if (filtered.length === 0) {
+    clientListEl.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <h3>Aucun client trouvé</h3>
+        <p>Essayez un autre terme.</p>
+      </div>`;
+    return;
+  }
+
+  clientListEl.innerHTML = filtered.map(c => {
+    const totalBaes = c.parcs.reduce((sum, p) => sum + p.baes.length, 0);
+    const nbParcs = c.parcs.length;
+    const nbRetard = countRetardClient(c);
+    return `
+      <div class="client-item" data-client-id="${c.id}">
+        <div class="client-name">${escapeHtml(c.nom)}</div>
+        <div class="client-detail">${ICONS.pin} ${escapeHtml(c.adresse.split(',')[0])}</div>
+        <div class="client-detail">${ICONS.phone} ${escapeHtml(c.tel)}</div>
+        <div class="client-meta">
+          <span>${nbParcs} parc${nbParcs > 1 ? 's' : ''}</span>
+          <span>${totalBaes} BAES</span>
+          ${nbRetard > 0 ? `<span style="background:#FCE8E6;color:#B33A2C">⚠ ${nbRetard} en retard</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  clientListEl.querySelectorAll('.client-item').forEach(el => {
+    el.addEventListener('click', () => selectClient(parseInt(el.dataset.clientId)));
+  });
+}
+
+function selectClient(clientId) {
+  currentClientId = clientId;
+  const client = getCurrentClient();
+  if (!client) return;
+
+  detailTitle.textContent = 'Fiche client';
+  clientNameDisplay.textContent = client.nom;
+  clientInfoGrid.innerHTML = `
+    <div class="info-item">${ICONS.pin} <span>${escapeHtml(client.adresse)}</span></div>
+    <div class="info-item">${ICONS.phone} <span>${escapeHtml(client.tel)}</span></div>
+    <div class="info-item">${ICONS.mail} <span>${escapeHtml(client.email)}</span></div>
+  `;
+  renderParcList(client);
+  goToDetail();
+}
+
+function getCurrentClient() {
+  return clientsData.find(c => c.id === currentClientId) || null;
+}
+
+/* ============================================================
+   MODIFICATION / SUPPRESSION CLIENT
+   ============================================================ */
+editClientBtn.addEventListener('click', () => {
+  const client = getCurrentClient();
+  if (!client) return;
+  openModal(`
+    <h3>Modifier le client</h3>
+    <div class="field-row" style="margin-bottom:10px">
+      <label>Nom du client / entreprise</label>
+      <input type="text" id="editClientNom" value="${escapeHtml(client.nom)}">
+    </div>
+    <div class="field-row" style="margin-bottom:10px">
+      <label>Adresse</label>
+      <input type="text" id="editClientAdresse" value="${escapeHtml(client.adresse)}">
+    </div>
+    <div class="field-row" style="margin-bottom:10px">
+      <label>Téléphone</label>
+      <input type="tel" id="editClientTel" value="${escapeHtml(client.tel)}">
+    </div>
+    <div class="field-row">
+      <label>Email</label>
+      <input type="email" id="editClientEmail" value="${escapeHtml(client.email)}">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+      <button class="btn btn-primary" id="confirmEditClient">Enregistrer</button>
+    </div>
+  `);
+
+  document.getElementById('confirmEditClient').addEventListener('click', () => {
+    const nom = document.getElementById('editClientNom').value.trim();
+    const adresse = document.getElementById('editClientAdresse').value.trim();
+    const tel = document.getElementById('editClientTel').value.trim();
+    const email = document.getElementById('editClientEmail').value.trim();
+    if (!nom) { showToast('Nom requis'); return; }
+    client.nom = nom;
+    client.adresse = adresse;
+    client.tel = tel;
+    client.email = email;
+    saveData();
+    closeModal();
+    // Rafraîchir la fiche
+    clientNameDisplay.textContent = client.nom;
+    clientInfoGrid.innerHTML = `
+      <div class="info-item">${ICONS.pin} <span>${escapeHtml(client.adresse)}</span></div>
+      <div class="info-item">${ICONS.phone} <span>${escapeHtml(client.tel)}</span></div>
+      <div class="info-item">${ICONS.mail} <span>${escapeHtml(client.email)}</span></div>
+    `;
+    showToast('Client modifié');
+  });
+});
+
+deleteClientBtn.addEventListener('click', () => {
+  const client = getCurrentClient();
+  if (!client) return;
+  openModal(`
+    <h3>Supprimer le client ?</h3>
+    <p style="font-size:0.9rem;color:var(--c-text-2);margin-bottom:12px">
+      Cette action supprimera <strong>${escapeHtml(client.nom)}</strong>, tous ses parcs et tous ses BAES. Elle est irréversible.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+      <button class="btn btn-danger" id="confirmDeleteClient">Supprimer</button>
+    </div>
+  `);
+  document.getElementById('confirmDeleteClient').addEventListener('click', () => {
+    clientsData = clientsData.filter(c => c.id !== client.id);
+    saveData();
+    closeModal();
+    goToClients();
+    showToast('Client supprimé');
+  });
+});
+
+/* ============================================================
+   LISTE PARCS
+   ============================================================ */
+function renderParcList(client) {
+  if (!client) return;
+  parcCount.textContent = client.parcs.length;
+
+  if (client.parcs.length === 0) {
+    parcListEl.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        ${ICONS.building}
+        <h3>Aucun parc</h3>
+        <p>Créez un parc (bâtiment, site...) pour ce client.</p>
+      </div>`;
+    return;
+  }
+
+  parcListEl.innerHTML = client.parcs.map(p => {
+    const total = p.baes.length;
+    const ok = p.baes.filter(b => b.etat === 'ok').length;
+    const nonok = p.baes.filter(b => b.etat === 'non ok').length;
+    const rempl = p.baes.filter(b => b.etat === 'remplacer').length;
+    const retard = p.baes.filter(isRetard).length;
+
+    return `
+      <div class="parc-item" data-parc-id="${p.id}">
+        <div class="parc-header-row">
+          <div class="parc-name">${ICONS.building} ${escapeHtml(p.nom)}</div>
+          <div class="parc-actions">
+            <button class="parc-action-btn" data-action="rename-parc" data-parc-id="${p.id}" title="Renommer">
+              ${ICONS.edit}
+            </button>
+            <button class="parc-action-btn danger" data-action="delete-parc" data-parc-id="${p.id}" title="Supprimer">
+              ${ICONS.trash}
+            </button>
+          </div>
+        </div>
+        <div class="parc-meta">
+          <span class="parc-stat">${total} BAES</span>
+          ${ok ? `<span class="parc-stat ok">${ok} OK</span>` : ''}
+          ${nonok ? `<span class="parc-stat nonok">${nonok} NON OK</span>` : ''}
+          ${rempl ? `<span class="parc-stat remplacer">${rempl} À REMPL.</span>` : ''}
+          ${retard ? `<span class="parc-stat nonok">⚠ ${retard} retard</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Clic sur la carte (hors boutons)
+  parcListEl.querySelectorAll('.parc-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action]')) return;
+      selectParc(parseInt(el.dataset.parcId));
+    });
+  });
+
+  // Actions (renommer / supprimer)
+  parcListEl.querySelectorAll('[data-action="rename-parc"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      renameParc(parseInt(btn.dataset.parcId));
+    });
+  });
+  parcListEl.querySelectorAll('[data-action="delete-parc"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteParcConfirm(parseInt(btn.dataset.parcId));
+    });
+  });
+}
+
+function renameParc(parcId) {
+  const client = getCurrentClient();
+  if (!client) return;
+  const parc = client.parcs.find(p => p.id === parcId);
+  if (!parc) return;
+  openModal(`
+    <h3>Renommer le parc</h3>
+    <div class="field-row">
+      <label>Nom du parc</label>
+      <input type="text" id="renameParcInput" value="${escapeHtml(parc.nom)}" autofocus>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+      <button class="btn btn-primary" id="confirmRenameParc">Enregistrer</button>
+    </div>
+  `);
+  document.getElementById('confirmRenameParc').addEventListener('click', () => {
+    const newName = document.getElementById('renameParcInput').value.trim();
+    if (!newName) { showToast('Nom requis'); return; }
+    parc.nom = newName;
+    saveData();
+    closeModal();
+    renderParcList(client);
+    showToast('Parc renommé');
+  });
+}
+
+function deleteParcConfirm(parcId) {
+  const client = getCurrentClient();
+  if (!client) return;
+  const parc = client.parcs.find(p => p.id === parcId);
+  if (!parc) return;
+  openModal(`
+    <h3>Supprimer le parc ?</h3>
+    <p style="font-size:0.9rem;color:var(--c-text-2);margin-bottom:12px">
+      <strong>${escapeHtml(parc.nom)}</strong> contient ${parc.baes.length} BAES. Cette action est irréversible.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+      <button class="btn btn-danger" id="confirmDeleteParc">Supprimer</button>
+    </div>
+  `);
+  document.getElementById('confirmDeleteParc').addEventListener('click', () => {
+    client.parcs = client.parcs.filter(p => p.id !== parcId);
+    saveData();
+    closeModal();
+    renderParcList(client);
+    showToast('Parc supprimé');
+  });
+}
+
+/* Bouton renommer dans le header de la page Parc */
+renameParcBtn.addEventListener('click', () => {
+  if (currentParcId) renameParc(currentParcId);
+});
+
+function selectParc(parcId) {
+  currentParcId = parcId;
+  const parc = getCurrentParc();
+  if (!parc) return;
+  parcTitle.textContent = parc.nom;
+  baesFilterTerm = '';
+  baesEtatFilter = 'all';
+  searchBaesInput.value = '';
+  resetEtatFilterBar();
+  renderBaesList();
+  goToParc();
+}
+
+function getCurrentParc() {
+  const c = getCurrentClient();
+  if (!c) return null;
+  return c.parcs.find(p => p.id === currentParcId) || null;
+}
+
+/* ============================================================
+   RETARD
+   ============================================================ */
+function isRetard(baes) {
+  if (!baes.derniereVerif) return false;
+  return (Date.now() - baes.derniereVerif) > RETARD_JOURS * 86400000;
+}
+
+function formatDateFR(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const j = String(d.getDate()).padStart(2, '0');
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const y = d.getFullYear();
+  return `${j}/${m}/${y}`;
+}
+
+function countRetardClient(client) {
+  let n = 0;
+  client.parcs.forEach(p => p.baes.forEach(b => { if (isRetard(b)) n++; }));
+  return n;
+}
+
+/* ============================================================
+   RENDU BAES
+   ============================================================ */
+function getFilteredBaes(parc) {
+  const t = baesFilterTerm;
+  return parc.baes.filter(b => {
+    if (t) {
+      const match = (b.numero||'').toLowerCase().includes(t) ||
+                    (b.emplacement||'').toLowerCase().includes(t) ||
+                    (b.marque||'').toLowerCase().includes(t) ||
+                    (b.commentaire||'').toLowerCase().includes(t) ||
+                    etatLabel(b.etat).toLowerCase().includes(t);
+      if (!match) return false;
+    }
+    if (baesEtatFilter !== 'all') {
+      if (baesEtatFilter === 'retard') {
+        if (!isRetard(b)) return false;
+      } else {
+        if (b.etat !== baesEtatFilter) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function etatLabel(v) {
+  if (v === 'ok') return 'OK';
+  if (v === 'non ok') return 'NON OK';
+  if (v === 'remplacer') return 'À REMPLACER';
+  return v || '';
+}
+
+function etatClass(v) {
+  if (v === 'ok') return 'etat-ok';
+  if (v === 'non ok') return 'etat-nonok';
+  return 'etat-remplacer';
+}
+
+function renderBaesList() {
+  const parc = getCurrentParc();
+  if (!parc) return;
+
+  const filtered = getFilteredBaes(parc);
+  baesCount.textContent = filtered.length;
+  parcCountBadge.textContent = `${parc.baes.length} BAES`;
+
+  if (filtered.length === 0) {
+    baesContainer.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1v.2h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+        </svg>
+        <h3>${parc.baes.length === 0 ? 'Aucun BAES' : 'Aucun résultat'}</h3>
+        <p>${parc.baes.length === 0 ? 'Ajoutez un BAES pour commencer.' : 'Modifiez vos filtres.'}</p>
+      </div>`;
+    return;
+  }
+
+  const token = ++baesRenderToken;
+  baesContainer.innerHTML = '';
+  appendBaesChunk(filtered, 0, token, parc.id);
+}
+
+function appendBaesChunk(list, startIndex, token, parcId) {
+  if (token !== baesRenderToken) return;
+  if (parcId !== currentParcId) return;
+
+  const end = Math.min(startIndex + renderBatchSize, list.length);
+  const chunk = list.slice(startIndex, end);
+
+  const frag = document.createDocumentFragment();
+  chunk.forEach(b => {
+    const card = document.createElement('div');
+    const isR = isRetard(b);
+    card.className = 'baes-card' + (isR ? ' retard' : '');
+    card.dataset.baesId = b.id;
+    card.innerHTML = buildBaesCardHTML(b, isR);
+    frag.appendChild(card);
+  });
+
+  baesContainer.appendChild(frag);
+
+  if (end < list.length) {
+    const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 0));
+    schedule(() => appendBaesChunk(list, end, token, parcId));
+  }
+}
+
+function buildBaesCardHTML(b, isR) {
+  const dateStr = formatDateFR(b.derniereVerif);
+
+  return `
+    <div class="baes-card-header">
+      <div class="baes-card-numero">
+        <span class="dot"></span>
+        <input type="text" value="${escapeHtml(b.numero)}" data-field="numero" placeholder="N°">
+      </div>
+      <div class="baes-actions">
+        ${isR ? `<span class="retard-badge">${ICONS.warn} Retard</span>` : ''}
+        <button class="icon-btn-sm" data-action="template" title="Template marque">${ICONS.building}</button>
+        <button class="icon-btn-sm ${b.photos && b.photos.length ? 'has-photo' : ''}" data-action="photo" title="Photos">${ICONS.camera}</button>
+        <button class="icon-btn-sm danger" data-action="delete" title="Supprimer">${ICONS.trash}</button>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label>Emplacement</label>
+      <input type="text" value="${escapeHtml(b.emplacement)}" data-field="emplacement" placeholder="Ex: Hall d'entrée">
+    </div>
+
+    <div class="field-grid-2">
+      <div class="field-row">
+        <label>Marque</label>
+        <input type="text" value="${escapeHtml(b.marque)}" data-field="marque" placeholder="Ex: Legrand">
+      </div>
+      <div class="field-row">
+        <label>État</label>
+        <select data-field="etat" class="${etatClass(b.etat)}">
+          ${ETATS.map(e => `<option value="${e.value}" ${b.etat === e.value ? 'selected' : ''}>${e.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label>Commentaire</label>
+      <textarea data-field="commentaire" placeholder="Notes...">${escapeHtml(b.commentaire)}</textarea>
+    </div>
+
+    <div class="field-row" style="margin-top:2px">
+      <label>Dernière vérification</label>
+      <input type="date" value="${b.derniereVerif ? new Date(b.derniereVerif).toISOString().slice(0,10) : ''}" data-field="derniereVerif" style="font-size:0.85rem">
+    </div>
+
+    ${b.photos && b.photos.length ? `
+      <div class="baes-photos">
+        ${b.photos.map((p, i) => `
+          <div class="photo-thumb">
+            <img src="${p}" alt="Photo ${i+1}">
+            <button class="remove-photo" data-action="remove-photo" data-photo-index="${i}">×</button>
+          </div>
+        `).join('')}
+        <button class="photo-add-btn" data-action="photo">${ICONS.camera}<span>Photo</span></button>
+      </div>
+    ` : ''}
+  `;
+}
+
+/* ============================================================
+   DÉLÉGATION D'ÉVÉNEMENTS BAES
+   ============================================================ */
+baesContainer.addEventListener('input', (e) => {
+  const field = e.target.dataset && e.target.dataset.field;
+  if (!field || field === 'derniereVerif') return;
+  const card = e.target.closest('.baes-card');
+  if (!card) return;
+  const parc = getCurrentParc();
+  if (!parc) return;
+  const baes = parc.baes.find(b => b.id === parseInt(card.dataset.baesId));
+  if (!baes) return;
+
+  baes[field] = e.target.value;
+  saveData();
+
+  if (field === 'etat') {
+    e.target.className = etatClass(baes.etat);
+    // Rafraîchir la carte pour màj badge retard
+    const newCard = document.createElement('div');
+    newCard.className = 'baes-card' + (isRetard(baes) ? ' retard' : '');
+    newCard.dataset.baesId = baes.id;
+    newCard.innerHTML = buildBaesCardHTML(baes, isRetard(baes));
+    card.replaceWith(newCard);
+  }
+});
+
+baesContainer.addEventListener('change', (e) => {
+  const field = e.target.dataset && e.target.dataset.field;
+  if (!field) return;
+  const card = e.target.closest('.baes-card');
+  if (!card) return;
+  const parc = getCurrentParc();
+  if (!parc) return;
+  const baes = parc.baes.find(b => b.id === parseInt(card.dataset.baesId));
+  if (!baes) return;
+
+  if (field === 'derniereVerif') {
+    if (e.target.value) {
+      const parts = e.target.value.split('-');
+      const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      baes.derniereVerif = d.getTime();
+      saveData();
+      // Recharger la carte
+      const newCard = document.createElement('div');
+      newCard.className = 'baes-card' + (isRetard(baes) ? ' retard' : '');
+      newCard.dataset.baesId = baes.id;
+      newCard.innerHTML = buildBaesCardHTML(baes, isRetard(baes));
+      card.replaceWith(newCard);
+      showToast('Date enregistrée');
+    }
+    return;
+  }
+
+  baes[field] = e.target.value;
+  saveData();
+});
+
+baesContainer.addEventListener('click', (e) => {
+  const actionEl = e.target.closest('[data-action]');
+  if (!actionEl) return;
+  const action = actionEl.dataset.action;
+  const card = actionEl.closest('.baes-card');
+  if (!card) return;
+  const parc = getCurrentParc();
+  if (!parc) return;
+  const baesId = parseInt(card.dataset.baesId);
+  const baes = parc.baes.find(b => b.id === baesId);
+  if (!baes) return;
+
+  if (action === 'delete') {
+    if (!confirm(`Supprimer le BAES ${baes.numero} ?`)) return;
+    parc.baes = parc.baes.filter(b => b.id !== baesId);
+    card.remove();
+    baesCount.textContent = getFilteredBaes(parc).length;
+    parcCountBadge.textContent = `${parc.baes.length} BAES`;
+    saveData();
+    showToast('BAES supprimé');
+  } else if (action === 'photo') {
+    openPhotoModal(baes);
+  } else if (action === 'remove-photo') {
+    const idx = parseInt(actionEl.dataset.photoIndex);
+    baes.photos.splice(idx, 1);
+    saveData();
+    renderBaesList();
+  } else if (action === 'template') {
+    openTemplateModal(baes);
+  }
+});
+
+/* ============================================================
+   MODALE PHOTO
+   ============================================================ */
+function openPhotoModal(baes) {
+  openModal(`
+    <h3>Photos du BAES ${escapeHtml(baes.numero)}</h3>
+    <p style="font-size:0.85rem;color:var(--c-text-2);margin-bottom:12px;">
+      Prenez des photos du BAES (avant/après, état, installation...).
+    </p>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+    <button class="btn btn-primary" id="takePhotoBtn" style="width:100%">
+      ${ICONS.camera} Prendre une photo
+    </button>
+    <div id="photoPreview" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Fermer</button>
+    </div>
+  `);
+
+  const photoInput = document.getElementById('photoInput');
+  const takePhotoBtn = document.getElementById('takePhotoBtn');
+  const photoPreview = document.getElementById('photoPreview');
+
+  function refreshPreview() {
+    photoPreview.innerHTML = baes.photos.map((p, i) => `
+      <div class="photo-thumb" style="width:80px;height:80px">
+        <img src="${p}" alt="Photo ${i+1}">
+        <button class="remove-photo" data-index="${i}">×</button>
+      </div>
+    `).join('');
+    photoPreview.querySelectorAll('.remove-photo').forEach(btn => {
+      btn.addEventListener('click', () => {
+        baes.photos.splice(parseInt(btn.dataset.index), 1);
+        saveData();
+        refreshPreview();
+      });
+    });
+  }
+
+  refreshPreview();
+  takePhotoBtn.addEventListener('click', () => photoInput.click());
+
+  photoInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, MAX_PHOTO_WIDTH);
+      baes.photos.push(compressed);
+      saveData();
+      refreshPreview();
+      showToast('Photo ajoutée');
+    } catch(err) { showToast('Erreur photo'); }
+    photoInput.value = '';
+  });
+}
+
+function compressImage(file, maxWidth) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = h * maxWidth / w; w = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ============================================================
+   MODALE TEMPLATE (uniquement les marques)
+   ============================================================ */
+function openTemplateModal(baes) {
+  openModal(`
+    <h3>Choisir une marque</h3>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${BAES_TEMPLATES.map((t, i) => `
+        <button class="btn btn-ghost" data-template-index="${i}" style="justify-content:flex-start">
+          <span style="flex:1;text-align:left">${t.label}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+    </div>
+  `);
+
+  modalContent.querySelectorAll('[data-template-index]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = BAES_TEMPLATES[parseInt(btn.dataset.templateIndex)];
+      baes.marque = t.marque;
+      saveData();
+      closeModal();
+      renderBaesList();
+      showToast('Marque appliquée');
+    });
+  });
+}
+
+/* ============================================================
+   RECHERCHE & FILTRES BAES
+   ============================================================ */
+let baesSearchTimer;
+searchBaesInput.addEventListener('input', (e) => {
+  clearTimeout(baesSearchTimer);
+  baesSearchTimer = setTimeout(() => {
+    baesFilterTerm = e.target.value.toLowerCase().trim();
+    renderBaesList();
+  }, 150);
+});
+
+etatFilterBar.addEventListener('click', (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  etatFilterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  baesEtatFilter = chip.dataset.filter;
+  renderBaesList();
+});
+
+/* ============================================================
+   AJOUT BAES
+   ============================================================ */
+function addBaes() {
+  const parc = getCurrentParc();
+  if (!parc) return;
+
+  const newId = Date.now() + Math.floor(Math.random() * 1000);
+  const newNumero = `B-${String(parc.baes.length + 1).padStart(2, '0')}`;
+
+  parc.baes.push({
+    id: newId,
+    numero: newNumero,
+    emplacement: "",
+    marque: "",
+    etat: "ok",
+    commentaire: "",
+    photos: [],
+    derniereVerif: Date.now()
+  });
+
+  if (baesFilterTerm || baesEtatFilter !== 'all') {
+    baesFilterTerm = '';
+    baesEtatFilter = 'all';
+    searchBaesInput.value = '';
+    resetEtatFilterBar();
+  }
+
+  saveData();
+  renderBaesList();
+  showToast('BAES ajouté');
+
+  setTimeout(() => {
+    const cards = baesContainer.querySelectorAll('.baes-card');
+    if (cards.length) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 120);
+}
+
+fabAddBaes.addEventListener('click', addBaes);
+
+/* ============================================================
+   AJOUT PARC
+   ============================================================ */
+addParcBtn.addEventListener('click', () => {
+  openModal(`
+    <h3>Nouveau parc / bâtiment</h3>
+    <div class="field-row">
+      <label>Nom du parc</label>
+      <input type="text" id="newParcName" placeholder="Ex: Bâtiment A, Site Nord..." autofocus>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+      <button class="btn btn-primary" id="confirmAddParc">Créer</button>
+    </div>
+  `);
+
+  document.getElementById('confirmAddParc').addEventListener('click', () => {
+    const name = document.getElementById('newParcName').value.trim();
+    if (!name) { showToast('Nom requis'); return; }
+    const client = getCurrentClient();
+    if (!client) return;
+    client.parcs.push({ id: Date.now(), nom: name, baes: [] });
+    saveData();
+    closeModal();
+    renderParcList(client);
+    showToast('Parc créé');
+  });
+});
+
+/* ============================================================
+   AJOUT CLIENT
+   ============================================================ */
+addClientBtn.addEventListener('click', () => {
+  openModal(`
+    <h3>Nouveau client</h3>
+    <div class="field-row" style="margin-bottom:10px">
+      <label>Nom du client / entreprise</label>
+      <input type="text" id="newClientNom" autofocus>
+    </div>
+    <div class="field-row" style="margin-bottom:10px">
+      <label>Adresse</label>
+      <input type="text" id="newClientAdresse">
+    </div>
+    <div class="field-row" style="margin-bottom:10px">
+      <label>Téléphone</label>
+      <input type="tel" id="newClientTel">
+    </div>
+    <div class="field-row">
+      <label>Email</label>
+      <input type="email" id="newClientEmail">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+      <button class="btn btn-primary" id="confirmAddClient">Créer</button>
+    </div>
+  `);
+
+  document.getElementById('confirmAddClient').addEventListener('click', () => {
+    const nom = document.getElementById('newClientNom').value.trim();
+    if (!nom) { showToast('Nom requis'); return; }
+    const newClient = {
+      id: Date.now(),
+      nom,
+      adresse: document.getElementById('newClientAdresse').value.trim(),
+      tel: document.getElementById('newClientTel').value.trim(),
+      email: document.getElementById('newClientEmail').value.trim(),
+      parcs: []
+    };
+    clientsData.push(newClient);
+    saveData();
+    closeModal();
+    renderClientList();
+    showToast('Client créé');
+  });
+});
+
+/* ============================================================
+   MODALE GENERIQUE
+   ============================================================ */
+function openModal(html) {
+  modalContent.innerHTML = html;
+  modalOverlay.classList.add('show');
+  modalContent.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', closeModal);
+  });
+}
+
+function closeModal() {
+  modalOverlay.classList.remove('show');
+  setTimeout(() => { if (!modalOverlay.classList.contains('show')) modalContent.innerHTML = ''; }, 200);
+}
+
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+/* ============================================================
+   SIGNATURE
+   ============================================================ */
+function openSignatureModal() {
+  openModal(`
+    <h3>Signature du technicien</h3>
+    <p style="font-size:0.82rem;color:var(--c-text-2);margin-bottom:8px;">
+      Signez dans le cadre ci-dessous. Votre signature sera apposée sur le rapport PDF.
+    </p>
+    <div class="signature-wrapper">
+      <button class="clear-signature" id="clearSignature">Effacer</button>
+      <canvas id="signatureCanvas"></canvas>
+    </div>
+    <div class="signature-hint">Signez avec le doigt ou le stylet</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close>Annuler</button>
+      <button class="btn btn-primary" id="confirmSignature">Valider</button>
+    </div>
+  `);
+
+  const canvas = document.getElementById('signatureCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.strokeStyle = '#1A2B4C';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  let drawing = false;
+  let lastX = 0, lastY = 0;
+  let hasDrawn = false;
+
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  }
+
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    const p = getPos(e);
+    lastX = p.x; lastY = p.y;
+    hasDrawn = true;
+  }
+
+  function move(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    lastX = p.x; lastY = p.y;
+  }
+
+  function end() { drawing = false; }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+
+  document.getElementById('clearSignature').addEventListener('click', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasDrawn = false;
+  });
+
+  document.getElementById('confirmSignature').addEventListener('click', () => {
+    if (!hasDrawn) { showToast('Veuillez signer'); return; }
+    signatureDataUrl = canvas.toDataURL('image/png');
+    closeModal();
+    showToast('Signature enregistrée');
+  });
+}
+
+/* ============================================================
+   PDF
+   ============================================================ */
+function getCurrentMonthYear() {
+  const mois = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const d = new Date();
+  return `${mois[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function computeStats(parcs) {
+  let total = 0, ok = 0, nonok = 0, rempl = 0, retard = 0;
+  parcs.forEach(p => p.baes.forEach(b => {
+    total++;
+    if (b.etat === 'ok') ok++;
+    else if (b.etat === 'non ok') nonok++;
+    else if (b.etat === 'remplacer') rempl++;
+    if (isRetard(b)) retard++;
+  }));
+  const taux = total > 0 ? Math.round((ok / total) * 100) : 0;
+  return { total, ok, nonok, rempl, retard, taux };
+}
+
+async function generatePdf(parcOnly) {
+  const client = getCurrentClient();
+  if (!client) { showToast('Aucun client'); return; }
+
+  if (window.__noJsPDF || !window.jspdf) {
+    printFallback(client, parcOnly);
+    return;
+  }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const primary = [26, 43, 76];
+    const accent  = [230, 177, 46];
+    const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const moisControle = getCurrentMonthYear();
+
+    const parcs = parcOnly ? [getCurrentParc()].filter(Boolean) : client.parcs;
+    const stats = computeStats(parcs);
+
+    doc.setFillColor(...primary);
+    doc.rect(0, 0, 210, 38, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Rapport de contrôle BAES', 14, 18);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Conformité NF C 71-800 / NF EN 60598-2-22', 14, 27);
+
+    doc.setTextColor(...primary);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text(client.nom, 14, 48);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Adresse : ${client.adresse}`, 14, 55);
+    doc.text(`Téléphone : ${client.tel}   •   Email : ${client.email}`, 14, 61);
+    doc.text(`Date du rapport : ${dateStr}   •   Mois de contrôle : ${moisControle}`, 14, 67);
+
+    const tauxY = 78;
+    doc.setFillColor(...accent);
+    doc.rect(14, tauxY, 182, 14, 'F');
+    doc.setTextColor(...primary);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TAUX DE CONFORMITÉ : ${stats.taux}%`, 18, tauxY + 6);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total : ${stats.total}   •   OK : ${stats.ok}   •   NON OK : ${stats.nonok}   •   À REMPLACER : ${stats.rempl}   •   En retard : ${stats.retard}`, 18, tauxY + 11);
+
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(0.8);
+    doc.line(14, tauxY + 18, 196, tauxY + 18);
+
+    let y = tauxY + 26;
+
+    for (const parc of parcs) {
+      if (y > 220) { doc.addPage(); y = 20; }
+      y = generatePdfForParc(parc, doc, y, moisControle);
+    }
+
+    if (y > 240) { doc.addPage(); y = 20; }
+    y += 6;
+    doc.setDrawColor(...primary);
+    doc.setLineWidth(0.3);
+    doc.line(14, y, 196, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...primary);
+    doc.text('Signature du technicien', 14, y);
+    y += 4;
+
+    if (signatureDataUrl) {
+      try { doc.addImage(signatureDataUrl, 'PNG', 14, y, 60, 25); }
+      catch(e) { doc.text('(signature non disponible)', 14, y + 10); }
+    } else {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text('(Non signé)', 14, y + 8);
+    }
+
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Rapport généré le ${dateStr}  •  Page ${i}/${pageCount}`, 14, 290);
+    }
+
+    const suffix = parcOnly ? getCurrentParc().nom.replace(/\s+/g, '_').toLowerCase() : 'complet';
+    const fileName = `rapport_baes_${client.nom.replace(/\s+/g, '_').toLowerCase()}_${suffix}_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(fileName);
+    showToast('PDF généré');
+  } catch (err) {
+    console.error(err);
+    printFallback(client, parcOnly);
+  }
+}
+
+function generatePdfForParc(parc, doc, startY, moisControle) {
+  const primary = [26, 43, 76];
+  const accent  = [230, 177, 46];
+
+  doc.setFillColor(...accent);
+  doc.rect(14, startY, 182, 10, 'F');
+  doc.setTextColor(...primary);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`PARC : ${parc.nom}  •  Mois de contrôle : ${moisControle}`, 17, startY + 7);
+
+  const head = [["N°","Emplacement","Marque","État","Vérifié le","Commentaire"]];
+  const body = parc.baes.map(b => [
+    b.numero || '',
+    b.emplacement || '',
+    b.marque || '',
+    etatLabel(b.etat),
+    formatDateFR(b.derniereVerif),
+    b.commentaire || ''
+  ]);
+
+  let endY = startY + 14;
+
+  if (window.jspdf && window.jspdf.jsPDF.API.autoTable) {
+    doc.autoTable({
+      head, body,
+      startY: endY, theme: 'grid',
+      headStyles: { fillColor: primary, textColor: [255,255,255], fontStyle: 'bold', fontSize: 8, halign: 'center' },
+      bodyStyles: { fontSize: 8, textColor: primary },
+      alternateRowStyles: { fillColor: [245,247,250] },
+      columnStyles: {
+        0:{cellWidth:16}, 1:{cellWidth:42}, 2:{cellWidth:32},
+        3:{cellWidth:24}, 4:{cellWidth:26}, 5:{cellWidth:42}
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 3) {
+          const v = data.cell.raw;
+          if (v === 'OK') { data.cell.styles.textColor = [30,123,74]; data.cell.styles.fontStyle='bold'; }
+          else if (v === 'NON OK') { data.cell.styles.textColor = [179,58,44]; data.cell.styles.fontStyle='bold'; }
+          else if (v === 'À REMPLACER') { data.cell.styles.textColor = [179,107,0]; data.cell.styles.fontStyle='bold'; }
+        }
+      },
+      margin: { left: 14, right: 14 }
+    });
+    return doc.lastAutoTable.finalY + 8;
+  }
+  return endY + 4;
+}
+
+generateClientPdfBtn.addEventListener('click', () => generatePdf(false));
+generateParcPdfBtn.addEventListener('click', () => generatePdf(true));
+
+/* ============================================================
+   FALLBACK IMPRESSION
+   ============================================================ */
+function printFallback(client, parcOnly) {
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const moisControle = getCurrentMonthYear();
+  const parcs = parcOnly ? [getCurrentParc()].filter(Boolean) : client.parcs;
+  const stats = computeStats(parcs);
+
+  const sections = parcs.map(parc => {
+    const rows = parc.baes.map(b => {
+      const label = etatLabel(b.etat);
+      const color = b.etat === 'ok' ? '#1E7B4A' : (b.etat === 'non ok' ? '#B33A2C' : '#B36B00');
+      return `<tr>
+        <td>${escapeHtml(b.numero)}</td>
+        <td>${escapeHtml(b.emplacement)}</td>
+        <td>${escapeHtml(b.marque)}</td>
+        <td style="color:${color};font-weight:700">${label}</td>
+        <td>${formatDateFR(b.derniereVerif)}</td>
+        <td>${escapeHtml(b.commentaire)}</td>
+      </tr>`;
+    }).join('');
+    return `<h2 style="background:#E6B12E;color:#1A2B4C;padding:8px 12px;border-radius:6px;font-size:14px;margin-top:20px">
+      PARC : ${escapeHtml(parc.nom)} • Mois : ${moisControle}
+    </h2>
+    <table><thead><tr>
+      <th>N°</th><th>Emplacement</th><th>Marque</th><th>État</th><th>Vérifié le</th><th>Commentaire</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+  }).join('');
+
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport BAES - ${escapeHtml(client.nom)}</title>
+    <style>
+      body{font-family:Helvetica,Arial,sans-serif;padding:20px;color:#1A2B4C;max-width:900px;margin:auto}
+      .head{background:#1A2B4C;color:#fff;padding:18px;border-radius:8px;margin-bottom:16px}
+      .head h1{margin:0 0 6px;font-size:19px}
+      .client{margin-bottom:14px;font-size:13px;line-height:1.7}
+      .taux{background:#E6B12E;color:#1A2B4C;padding:14px;border-radius:8px;margin:14px 0;font-weight:700}
+      table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+      th{background:#1A2B4C;color:#fff;padding:7px;text-align:left;font-size:10px}
+      td{padding:6px 7px;border-bottom:1px solid #eee}
+      tr:nth-child(even) td{background:#F5F7FA}
+      .sig{margin-top:24px;border-top:1px solid #ccc;padding-top:12px}
+      .sig img{max-width:200px;border:1px dashed #ccc;padding:6px;background:#fff}
+      @media print{.no-print{display:none}}
+    </style></head><body>
+    <div class="head"><h1>Rapport de contrôle BAES</h1><p>Conformité NF C 71-800 / NF EN 60598-2-22</p></div>
+    <div class="client">
+      <strong>${escapeHtml(client.nom)}</strong><br>
+      ${escapeHtml(client.adresse)}<br>
+      Tél : ${escapeHtml(client.tel)} — Email : ${escapeHtml(client.email)}<br>
+      <em>Date du rapport : ${dateStr} • Mois : ${moisControle}</em>
+    </div>
+    <div class="taux">
+      TAUX DE CONFORMITÉ : ${stats.taux}%<br>
+      <span style="font-size:12px;font-weight:normal">Total : ${stats.total} • OK : ${stats.ok} • NON OK : ${stats.nonok} • À REMPLACER : ${stats.rempl} • En retard : ${stats.retard}</span>
+    </div>
+    ${sections}
+    <div class="sig">
+      <strong>Signature du technicien :</strong><br>
+      ${signatureDataUrl ? `<img src="${signatureDataUrl}" alt="signature">` : '<em>(non signé)</em>'}
+    </div>
+    <div class="no-print" style="margin-top:18px;text-align:center">
+      <button onclick="window.print()" style="padding:10px 20px;background:#E6B12E;border:none;border-radius:8px;font-weight:700;cursor:pointer">
+        Imprimer / Enregistrer en PDF
+      </button>
+    </div>
+    </body></html>`);
+  w.document.close();
+  setTimeout(() => w.print(), 400);
+}
+
+/* ============================================================
+   VUE GLOBALE
+   ============================================================ */
+function renderGlobalView() {
+  let total = 0, ok = 0, nonok = 0, rempl = 0, retard = 0;
+  clientsData.forEach(c => c.parcs.forEach(p => p.baes.forEach(b => {
+    total++;
+    if (b.etat === 'ok') ok++;
+    else if (b.etat === 'non ok') nonok++;
+    else if (b.etat === 'remplacer') rempl++;
+    if (isRetard(b)) retard++;
+  })));
+
+  globalStats.innerHTML = `
+    <div class="global-stat"><div class="num">${total}</div><div class="lbl">Total BAES</div></div>
+    <div class="global-stat ok"><div class="num">${ok}</div><div class="lbl">OK</div></div>
+    <div class="global-stat nonok"><div class="num">${nonok}</div><div class="lbl">NON OK</div></div>
+    <div class="global-stat remplacer"><div class="num">${rempl}</div><div class="lbl">À REMPLACER</div></div>
+  `;
+
+  renderGlobalBaesList();
+}
+
+function renderGlobalBaesList() {
+  const items = [];
+  clientsData.forEach(c => c.parcs.forEach(p => p.baes.forEach(b => {
+    if (globalEtatFilter !== 'all') {
+      if (globalEtatFilter === 'retard') {
+        if (!isRetard(b)) return;
+      } else {
+        if (b.etat !== globalEtatFilter) return;
+      }
+    }
+    items.push({ client: c, parc: p, baes: b });
+  })));
+
+  if (items.length === 0) {
+    globalBaesList.innerHTML = `
+      <div class="empty-state">
+        ${ICONS.check}
+        <h3>Aucun BAES dans ce filtre</h3>
+        <p>Bonne nouvelle ?</p>
+      </div>`;
+    return;
+  }
+
+  globalBaesList.innerHTML = items.map(({ client, parc, baes }) => {
+    const isR = isRetard(baes);
+    return `
+      <div class="global-baes-item" data-client-id="${client.id}" data-parc-id="${parc.id}">
+        <div class="g-header">
+          <span class="g-title">${escapeHtml(baes.numero)}</span>
+        </div>
+        <div class="g-path">${ICONS.building} ${escapeHtml(parc.nom)}</div>
+        <div class="g-path">${ICONS.pin} ${escapeHtml(baes.emplacement || '—')}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span class="${etatClass(baes.etat)}" style="font-size:0.7rem;font-weight:700;padding:3px 8px;border-radius:20px">${etatLabel(baes.etat)}</span>
+          <span style="font-size:0.7rem;color:var(--c-text-2)">${formatDateFR(baes.derniereVerif)}</span>
+          ${isR ? `<span class="retard-badge">${ICONS.warn}</span>` : ''}
+        </div>
+        <div style="font-size:0.72rem;color:var(--c-text-2);margin-top:4px">${escapeHtml(client.nom)}</div>
+      </div>
+    `;
+  }).join('');
+
+  globalBaesList.querySelectorAll('.global-baes-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const cid = parseInt(el.dataset.clientId);
+      const pid = parseInt(el.dataset.parcId);
+      currentClientId = cid;
+      currentParcId = pid;
+      pageGlobal.classList.remove('active');
+      selectClient(cid);
+      setTimeout(() => selectParc(pid), 350);
+    });
+  });
+}
+
+globalFilterBar.addEventListener('click', (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  globalFilterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  globalEtatFilter = chip.dataset.filter;
+  renderGlobalBaesList();
+});
+
+/* ============================================================
+   EXPORT / IMPORT
+   ============================================================ */
+exportBtn.addEventListener('click', () => {
+  const data = { version: 2, exportedAt: new Date().toISOString(), clients: clientsData };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `baes_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Sauvegarde exportée');
+});
+
+importBtn.addEventListener('click', () => importFile.click());
+
+importFile.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.clients || !Array.isArray(data.clients)) throw new Error('Format invalide');
+      if (!confirm(`Importer ${data.clients.length} client(s) ? Vos données actuelles seront remplacées.`)) return;
+      clientsData = data.clients;
+      saveData();
+      renderClientList();
+      showToast('Données importées');
+    } catch(err) { showToast('Fichier invalide'); }
+  };
+  reader.readAsText(file);
+  importFile.value = '';
+});
+
+/* ============================================================
+   THEME & GLOBAL
+   ============================================================ */
+themeToggle.addEventListener('click', toggleTheme);
+globalViewBtn.addEventListener('click', goToGlobal);
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+let toastTimer;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ============================================================
+   SERVICE WORKER
+   ============================================================ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init() {
+  initTheme();
+  loadData();
+
+  clientsData.forEach(c => c.parcs.forEach(p => p.baes.forEach(b => {
+    if (!b.derniereVerif) b.derniereVerif = Date.now();
+    if (!b.photos) b.photos = [];
+  })));
+
+  renderClientList();
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(window.__clientSearchTimer);
+    window.__clientSearchTimer = setTimeout(renderClientList, 120);
+  });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!e.target.closest('.page-content') && !e.target.closest('.modal')) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // Bouton signature dans la toolbar du parc
+  const parcSectionHeader = document.querySelector('#pageParc .section-header');
+  if (parcSectionHeader) {
+    const signBtn = document.createElement('button');
+    signBtn.className = 'btn btn-ghost';
+    signBtn.innerHTML = ICONS.sign + ' Signer';
+    signBtn.style.marginRight = 'auto';
+    signBtn.addEventListener('click', openSignatureModal);
+    parcSectionHeader.appendChild(signBtn);
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
