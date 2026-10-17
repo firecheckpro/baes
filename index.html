@@ -98,12 +98,20 @@ html.dark .app-header h1 .title-text { color: #F5F7FA; }
 
 .app-header h1 {
   font-size: 1.05rem; font-weight: 700;
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: baseline; gap: 8px;
   flex: 1; min-width: 0;
 }
 
 .app-header h1 .title-text {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.app-header h1 .app-version {
+  font-size: 0.62rem;
+  font-weight: 500;
+  opacity: 0.55;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
 }
 
 .app-header .logo-icon { width: 24px; height: 24px; flex-shrink: 0; color: var(--c-accent); }
@@ -712,7 +720,7 @@ html.dark .toast { background: var(--c-accent); color: #1A2B4C; }
       <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/>
       <path d="M9 12l2 2 4-4" stroke="#E6B12E"/>
     </svg>
-    <h1><span class="title-text">BAES Manager</span></h1>
+    <h1><span class="title-text">BAES Manager</span><span class="app-version">V2.0</span></h1>
     <button class="icon-header-btn" id="themeToggle" aria-label="Thème">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -928,6 +936,8 @@ html.dark .toast { background: var(--c-accent); color: #1A2B4C; }
 /* ============================================================
    CONSTANTES
    ============================================================ */
+const APP_VERSION = 'V2.0';
+
 const ETATS = [
   { value: "ok", label: "OK" },
   { value: "non ok", label: "NON OK" },
@@ -1594,8 +1604,6 @@ function appendBaesChunk(list, startIndex, token, parcId) {
 }
 
 function buildBaesCardHTML(b, isR) {
-  const dateStr = formatDateFR(b.derniereVerif);
-
   return `
     <div class="baes-card-header">
       <div class="baes-card-numero">
@@ -1670,7 +1678,6 @@ baesContainer.addEventListener('input', (e) => {
 
   if (field === 'etat') {
     e.target.className = etatClass(baes.etat);
-    // Rafraîchir la carte pour màj badge retard
     const newCard = document.createElement('div');
     newCard.className = 'baes-card' + (isRetard(baes) ? ' retard' : '');
     newCard.dataset.baesId = baes.id;
@@ -1695,7 +1702,6 @@ baesContainer.addEventListener('change', (e) => {
       const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
       baes.derniereVerif = d.getTime();
       saveData();
-      // Recharger la carte
       const newCard = document.createElement('div');
       newCard.className = 'baes-card' + (isRetard(baes) ? ' retard' : '');
       newCard.dataset.baesId = baes.id;
@@ -2206,12 +2212,194 @@ async function generatePdf(parcOnly) {
 
     const suffix = parcOnly ? getCurrentParc().nom.replace(/\s+/g, '_').toLowerCase() : 'complet';
     const fileName = `rapport_baes_${client.nom.replace(/\s+/g, '_').toLowerCase()}_${suffix}_${new Date().toISOString().slice(0,10)}.pdf`;
-    doc.save(fileName);
-    showToast('PDF généré');
+
+    /* ========================================================
+       SOLUTION 3 : Gestion iOS-friendly du PDF
+       ======================================================== */
+    await exportPdfSafe(doc, fileName);
+
   } catch (err) {
     console.error(err);
     printFallback(client, parcOnly);
   }
+}
+
+/* ============================================================
+   EXPORT PDF SÉCURISÉ (Solution 3)
+   ============================================================ */
+async function exportPdfSafe(doc, fileName) {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.navigator.standalone === true ||
+                       window.matchMedia('(display-mode: standalone)').matches;
+
+  // 1) PWA iOS : partage natif (l'utilisateur choisit Fichiers / Mail / AirDrop)
+  if (isIOS && isStandalone) {
+    try {
+      const blob = doc.output('blob');
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Rapport BAES',
+          text: 'Rapport de contrôle BAES'
+        });
+        showToast('PDF partagé');
+        return;
+      }
+
+      // Si partage indisponible : viewer avec bouton fermer
+      openPdfViewer(blob);
+      return;
+    } catch(err) {
+      if (err && err.name === 'AbortError') {
+        // L'utilisateur a annulé le partage, on ne fait rien
+        return;
+      }
+      // En cas d'erreur, on tente le viewer
+      try {
+        const blob = doc.output('blob');
+        openPdfViewer(blob);
+        return;
+      } catch(e) {
+        doc.save(fileName);
+        showToast('PDF généré');
+        return;
+      }
+    }
+  }
+
+  // 2) Safari iOS : viewer avec bouton fermer
+  if (isIOS) {
+    try {
+      const blob = doc.output('blob');
+      openPdfViewer(blob);
+      return;
+    } catch(e) {
+      doc.save(fileName);
+      showToast('PDF généré');
+      return;
+    }
+  }
+
+  // 3) Desktop / Android : téléchargement classique
+  doc.save(fileName);
+  showToast('PDF généré');
+}
+
+/* ============================================================
+   VIEWER PDF avec bouton fermer (iOS-friendly)
+   ============================================================ */
+function openPdfViewer(blob) {
+  const url = URL.createObjectURL(blob);
+  const w = window.open('', '_blank');
+
+  if (!w) {
+    // Popup bloquée → fallback téléchargement
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'rapport_baes.pdf';
+    a.target = '_blank';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    showToast('PDF généré');
+    return;
+  }
+
+  w.document.write(`
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+      <meta name="apple-mobile-web-app-capable" content="yes">
+      <title>Rapport BAES</title>
+      <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { height:100%; overflow:hidden; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          display:flex; flex-direction:column;
+          background:#0F1A2E;
+        }
+        .bar {
+          background:#1A2B4C; color:#F5F7FA;
+          padding: calc(env(safe-area-inset-top, 0px) + 12px) 14px 12px;
+          display:flex; align-items:center; gap:10px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+          z-index:10;
+        }
+        .bar h1 {
+          font-size:0.95rem; font-weight:700; flex:1;
+          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+        .close-btn {
+          background: rgba(255,255,255,0.15);
+          border:none; color:#F5F7FA;
+          padding: 9px 16px; border-radius: 40px;
+          font-size:0.85rem; font-weight:700;
+          cursor:pointer; font-family:inherit;
+          display:flex; align-items:center; gap:6px;
+          min-height:38px;
+        }
+        .close-btn:active { background: rgba(255,255,255,0.3); }
+        .close-btn svg { width:14px; height:14px; }
+        .pdf-wrap {
+          flex:1; position:relative; background:#fff;
+          overflow:auto;
+          -webkit-overflow-scrolling:touch;
+        }
+        .pdf-wrap iframe {
+          width:100%; height:100%; border:0; display:block;
+        }
+        .hint {
+          position:fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+          left:50%; transform:translateX(-50%);
+          background: rgba(26,43,76,0.92); color:#F5F7FA;
+          padding:8px 16px; border-radius:40px;
+          font-size:0.72rem; font-weight:600;
+          pointer-events:none;
+          animation: fadeHint 4s ease forwards;
+          z-index:20;
+        }
+        @keyframes fadeHint {
+          0%, 70% { opacity:1; }
+          100% { opacity:0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="bar">
+        <h1>Rapport BAES</h1>
+        <button class="close-btn" onclick="closeViewer()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          Fermer
+        </button>
+      </div>
+      <div class="pdf-wrap">
+        <iframe src="${url}" title="Rapport PDF"></iframe>
+      </div>
+      <div class="hint">Appuyez sur Fermer en haut pour revenir</div>
+      <script>
+        function closeViewer() {
+          try { window.close(); } catch(e) {}
+          setTimeout(function() {
+            try { history.length > 1 ? history.back() : (window.location.href = 'about:blank'); } catch(e) {}
+          }, 100);
+        }
+      <\/script>
+    </body>
+    </html>
+  `);
+  w.document.close();
+
+  // Nettoyage du blob URL après un délai raisonnable
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+  showToast('PDF ouvert');
 }
 
 function generatePdfForParc(parc, doc, startY, moisControle) {
@@ -2297,8 +2485,10 @@ function printFallback(client, parcOnly) {
   }).join('');
 
   const w = window.open('', '_blank');
+  if (!w) { showToast('Popup bloquée'); return; }
   w.document.write(`
     <!DOCTYPE html><html><head><meta charset="utf-8"><title>Rapport BAES - ${escapeHtml(client.nom)}</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <style>
       body{font-family:Helvetica,Arial,sans-serif;padding:20px;color:#1A2B4C;max-width:900px;margin:auto}
       .head{background:#1A2B4C;color:#fff;padding:18px;border-radius:8px;margin-bottom:16px}
@@ -2311,8 +2501,10 @@ function printFallback(client, parcOnly) {
       tr:nth-child(even) td{background:#F5F7FA}
       .sig{margin-top:24px;border-top:1px solid #ccc;padding-top:12px}
       .sig img{max-width:200px;border:1px dashed #ccc;padding:6px;background:#fff}
-      @media print{.no-print{display:none}}
+      .close-top{position:fixed;top:14px;right:14px;background:#E6B12E;color:#1A2B4C;border:none;padding:10px 16px;border-radius:40px;font-weight:700;font-size:13px;cursor:pointer;z-index:99;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+      @media print{.no-print{display:none} .close-top{display:none}}
     </style></head><body>
+    <button class="close-top no-print" onclick="window.close();setTimeout(function(){try{history.length>1?history.back():(window.location.href='about:blank')}catch(e){}},100)">✕ Fermer</button>
     <div class="head"><h1>Rapport de contrôle BAES</h1><p>Conformité NF C 71-800 / NF EN 60598-2-22</p></div>
     <div class="client">
       <strong>${escapeHtml(client.nom)}</strong><br>
@@ -2336,7 +2528,6 @@ function printFallback(client, parcOnly) {
     </div>
     </body></html>`);
   w.document.close();
-  setTimeout(() => w.print(), 400);
 }
 
 /* ============================================================
@@ -2534,6 +2725,9 @@ function init() {
     signBtn.addEventListener('click', openSignatureModal);
     parcSectionHeader.appendChild(signBtn);
   }
+
+  // Affichage version dans la console
+  console.log(`BAES Manager ${APP_VERSION}`);
 }
 
 init();
